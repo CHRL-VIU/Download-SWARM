@@ -52,35 +52,35 @@ for item in messages:
         #print(base64.b64decode(item['data']).decode('ascii') + '\n')
         msg.append(base64.b64decode(item['data']).decode('ascii'))
 
-# get message data into dataframe and clean to match standard output
-df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
-
-# put datetime column together based on individual columns
-datetimes = df_sat[[2, 3, 4, 5]].astype(str).astype(np.int64)
-datetimes.columns = ["year","month","day","hours"]
-dt = pd.to_datetime(datetimes)
-
-# remove July 13 2023 from database as it is erroneous and reset indices
-idx_err = [i for i in range(len(dt)) if '2023-07-13' in str(dt[i])]
-df_sat = pd.DataFrame.drop(df_sat, idx_err)
-dt = pd.Series.drop(dt, idx_err)
-df_sat = pd.Series.reset_index(df_sat,drop=True)
-dt = pd.Series.reset_index(dt,drop=True)
-
-# make sure you sort messages from older to newer dates as satellite sometimes 
-# sends multiple records at same time which are not sorted from older to newer
-dt = pd.Series(sorted(dt, key=lambda x: (x, datetime)))
-
-# read existing SQL entry with data and check if new data needs writing
-print('Checking for new data from satellite')      
-sql_file = pd.read_sql(sql="SELECT * FROM raw_mountmaya", con = engine)
-last_dt_sql = sql_file['DateTime'].iloc[-1]
-last_dt_system = dt.iloc[-1]
-
-# if the last row in SWARM matches last row in SQL database (i.e. no new data to
-# write), then exit and don't write new data to databse
-check = last_dt_sql == last_dt_system    
 while True:
+    # get message data into dataframe and clean to match standard output
+    df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
+    
+    # put datetime column together based on individual columns
+    datetimes = df_sat[[2, 3, 4, 5]].astype(str).astype(np.int64)
+    datetimes.columns = ["year","month","day","hours"]
+    dt = pd.to_datetime(datetimes)
+    
+    # remove July 13 2023 from database as it is erroneous and reset indices
+    idx_err = [i for i in range(len(dt)) if '2023-07-13' in str(dt[i])]
+    df_sat = pd.DataFrame.drop(df_sat, idx_err)
+    dt = pd.Series.drop(dt, idx_err)
+    df_sat = pd.Series.reset_index(df_sat,drop=True)
+    dt = pd.Series.reset_index(dt,drop=True)
+    
+    # make sure you sort messages from older to newer dates as satellite sometimes 
+    # sends multiple records at same time which are not sorted from older to newer
+    dt = pd.Series(sorted(dt, key=lambda x: (x, datetime)))
+    
+    # read existing SQL entry with data and check if new data needs writing
+    print('Checking for new data from satellite')      
+    sql_file = pd.read_sql(sql="SELECT * FROM raw_mountmaya", con = engine)
+    last_dt_sql = sql_file['DateTime'].iloc[-1]
+    last_dt_system = dt.iloc[-1]
+    
+    # if the last row in SWARM matches last row in SQL database (i.e. no new data to
+    # write), then exit and don't write new data to databse
+    check = last_dt_sql == last_dt_system    
     if check:
         print('No new data detected - check satellite transmission?')  
         
@@ -113,8 +113,8 @@ while True:
         datetimes.columns = ["year","month","day","hours"]
         dt = pd.to_datetime(datetimes)
         
-        # export new data to last row of CSV file  
-        # no data values will automatically be added in SQL database as 
+        # export new data to last row of SQL database  
+        # No data values will automatically be added in SQL database as 
         # 'NULL'
         new_row = pd.DataFrame({'DateTime':dt,
                    'BattV_Avg':missing_data_df[6].astype(float),
