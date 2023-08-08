@@ -18,6 +18,7 @@ from datetime import datetime
 # Server log-in details stored in config file
 import config
 engine = config.main_sql()
+conn = engine.connect()
 
 # download SWARM satellite data from the server
 # define output of the REST request as json
@@ -137,3 +138,7 @@ while True:
         # write current time for sanity check and exit loop
         current_dateTime = datetime.now()
         print("Done at:", current_dateTime, '- refreshing in 1 hour...')
+
+# close mysql engine call
+conn.close()
+engine.dispose()
