@@ -139,6 +139,6 @@ while True:
         current_dateTime = datetime.now()
         print("Done at:", current_dateTime, '- refreshing in 1 hour...')
 
-# close mysql engine call
+# close mysql engine call 
 conn.close()
 engine.dispose()
