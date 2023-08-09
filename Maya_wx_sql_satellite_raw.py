@@ -18,7 +18,6 @@ from datetime import datetime
 # Server log-in details stored in config file
 import config
 engine = config.main_sql()
-conn = engine.connect()
 
 # download SWARM satellite data from the server
 # define output of the REST request as json
@@ -74,9 +73,12 @@ while True:
     dt = pd.Series(sorted(dt, key=lambda x: (x, datetime)))
     
     # read existing SQL entry with data and check if new data needs writing
+    # reading the 'raw_mountmaya' SQL results in Memory Error messages due to 
+    # size. This process differs from 'clean_mountmaya' where we first need to
+    # read the SQL database using '_query' and setting a limit of 1000 rows
     print('Checking for new data from satellite')      
-    sql_file = pd.read_sql(sql="SELECT * FROM raw_mountmaya", con = engine)
-    last_dt_sql = sql_file['DateTime'].iloc[-1]
+    sql_file = pd.read_sql_query(sql="SELECT * FROM raw_mountmaya ORDER BY DateTime DESC LIMIT 1000", con = engine)
+    last_dt_sql = sql_file['DateTime'].iloc[0] # index [0] as newer data at top
     last_dt_system = dt.iloc[-1]
     
     # if the last row in SWARM matches last row in SQL database (i.e. no new data to
@@ -138,7 +140,3 @@ while True:
         # write current time for sanity check and exit loop
         current_dateTime = datetime.now()
         print("Done at:", current_dateTime, '- refreshing in 1 hour...')
-
-# close mysql engine call 
-conn.close()
-engine.dispose()
