@@ -57,6 +57,10 @@ while True:
     # get message data into dataframe and clean to match standard output
     df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
     
+    # make sure you sort messages from older to newer dates as satellite sometimes 
+    # sends multiple records at same time which are not sorted from older to newer
+    df_sat = df_sat.sort_values(by=[2,3,4,5]) # sort by columns YYYY, MM, DD, HH
+    
     # put datetime column together based on individual columns
     datetimes = df_sat[[2, 3, 4, 5]].astype(str).astype(np.int64)
     datetimes.columns = ["year","month","day","hours"]
@@ -68,10 +72,6 @@ while True:
     dt = pd.Series.drop(dt, idx_err)
     df_sat = pd.Series.reset_index(df_sat,drop=True)
     dt = pd.Series.reset_index(dt,drop=True)
-    
-    # make sure you sort messages from older to newer dates as satellite sometimes 
-    # sends multiple records at same time which are not sorted from older to newer
-    dt = pd.Series(sorted(dt, key=lambda x: (x, datetime)))
     
     # calculate PP_pipe
     pp_pipes = []
