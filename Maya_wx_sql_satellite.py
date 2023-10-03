@@ -57,6 +57,23 @@ while True:
     # get message data into dataframe and clean to match standard output
     df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
     
+    # filter only lon/lat for Maya in case other wx stations are connected
+    # to the same account
+    lat = '52.287217' # Maya
+    lon = '-126.073550' # Maya
+    coords_maya = pd.DataFrame(index=range(len(df_sat)),columns=range(2))
+    coords_maya[0] = coords_maya[0].fillna(lat)
+    coords_maya[1] = coords_maya[1].fillna(lon)
+    df_coords = df_sat[[0,1]]
+    df_logical = df_coords.eq(coords_maya)
+    df_maya = df_coords[df_logical]
+
+    # identify if lat is different and remove entire row (i.e. used to avoid
+    # other non-Maya wx station data being submitted to the same Bumblebee
+    # message account)
+    idx = df_maya[df_logical[0]].index.tolist()
+    df_sat = df_sat.iloc[idx]
+    
     # make sure you sort messages from older to newer dates as satellite sometimes 
     # sends multiple records at same time which are not sorted from older to newer
     df_sat = df_sat.sort_values(by=[2,3,4,5]) # sort by columns YYYY, MM, DD, HH
