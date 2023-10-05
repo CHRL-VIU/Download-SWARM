@@ -10,7 +10,6 @@
 
 import base64
 import requests
-import os
 import pandas as pd 
 import numpy as np
 from datetime import datetime
@@ -73,7 +72,8 @@ while True:
     # message account)
     idx = df_maya[df_logical[0]].index.tolist()
     df_sat = df_sat.iloc[idx]
-    
+    df_sat = df_sat.reset_index(drop=True)
+
     # make sure you sort messages from older to newer dates as satellite sometimes 
     # sends multiple records at same time which are not sorted from older to newer
     df_sat = df_sat.sort_values(by=[2,3,4,5]) # sort by columns YYYY, MM, DD, HH
