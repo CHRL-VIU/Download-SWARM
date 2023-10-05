@@ -72,6 +72,7 @@ while True:
     # message account)
     idx = df_maya[df_logical[0]].index.tolist()
     df_sat = df_sat.iloc[idx]
+    df_sat = df_sat.reset_index(drop=True)
 
     # make sure you sort messages from older to newer dates as satellite sometimes 
     # sends multiple records at same time which are not sorted from older to newer
