@@ -98,7 +98,7 @@ while True:
             })
                 
         # write new data to MySQL database
-        #new_row.to_sql(name='clean_mountmaya', con=engine, if_exists = 'append', index=False)
+        new_row.to_sql(name='clean_mountmaya', con=engine, if_exists = 'append', index=False)
         
         # write current time for sanity check and exit loop
         current_dateTime = datetime.now()
