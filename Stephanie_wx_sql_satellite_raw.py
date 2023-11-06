@@ -88,20 +88,28 @@ df_s9 = df_s9[cut_idx:].reset_index(drop=True)
 # calculate water year for Stephanies (new year starts on 10.01.YYYY). 
 # If months are before October, do nothing. Else add +1
 WatYrs_s6 = []
+RegYrs_s6 = []
 for i in range(len(df_s6)):
     if int(str(df_s6[18].iloc[i]).split('-')[1]) < 10:
         WatYr = int(str(df_s6[18].iloc[i]).split('-')[0])
+        RegYr = WatYr
     else:
         WatYr = int(str(df_s6[18].iloc[i]).split('-')[0])+1
+        RegYr = WatYr-1
     WatYrs_s6.append(WatYr)
+    RegYrs_s6.append(RegYr)
     
 WatYrs_s9 = []
+RegYrs_s9 = []
 for i in range(len(df_s9)):
     if int(str(df_s9[14].iloc[i]).split('-')[1]) < 10:
         WatYr = int(str(df_s9[14].iloc[i]).split('-')[0])
+        RegYr = WatYr
     else:
         WatYr = int(str(df_s9[14].iloc[i]).split('-')[0])+1
+        RegYr = WatYr-1
     WatYrs_s9.append(WatYr)
+    RegYrs_s9.append(RegYr)
 
 # make sure you sort messages from older to newer dates as satellite sometimes 
 # sends multiple records at same time which are not sorted from older to newer
@@ -110,12 +118,12 @@ df_s9 = df_s9.sort_values(by=[0,1,2]) # sort by columns YYYY, MM, DD, HH
 
 # put datetime column together based on individual columns
 s6_dt = df_s6[[ 0, 1, 2]].astype(str).astype(np.int64)
-s6_dt = pd.concat([pd.DataFrame(WatYrs_s6),s6_dt], axis=1)
+s6_dt = pd.concat([pd.DataFrame(RegYrs_s6),s6_dt], axis=1)
 s6_dt.columns = ["year","month","day","hours"]
 s6_dt = pd.to_datetime(s6_dt)
 
 s9_dt = df_s9[[ 0, 1, 2]].astype(str).astype(np.int64)
-s9_dt = pd.concat([pd.DataFrame(WatYrs_s9),s9_dt], axis=1)
+s9_dt = pd.concat([pd.DataFrame(RegYrs_s9),s9_dt], axis=1)
 s9_dt.columns = ["year","month","day","hours"]
 s9_dt = pd.to_datetime(s9_dt)
 
