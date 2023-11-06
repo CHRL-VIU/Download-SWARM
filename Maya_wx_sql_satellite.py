@@ -19,95 +19,18 @@ from datetime import datetime
 import config
 engine = config.main_sql()
 
-# download SWARM satellite data from the server
-# define output of the REST request as json
-# and other parameterized values used below
-loginHeaders = {'Content-Type': 'application/x-www-form-urlencoded'}
-hdrs = {'Accept': 'application/json'}
-loginParams = config.main_swarm()
-
-hiveBaseURL = 'https://bumblebee.hive.swarm.space/hive'
-loginURL = hiveBaseURL + '/login'
-getMessageURL = hiveBaseURL + '/api/v1/messages'
-
-# create a session
-with requests.Session() as s:
-    # log in to get the JSESSIONID cookie
-    res = s.post(loginURL, data=loginParams, headers=loginHeaders)
-
-if res.status_code != 200:
-    print("Invalid username or password; please use a valid username and password in loginParams.")
-    exit(1)
-
-# let the session manage the cookie and get the output for the given appID
-# only pull the last 10 items that have not been ACK'd
-res = s.get(getMessageURL, headers=hdrs, params={'count': 1000, 'status': 0})
-messages = res.json()
-
-# for all the items in the json returned (limited to 10 above)
-msg = []
-for item in messages:
-    # if there is a 'data' keypair, output the data portion converting it from base64 to ascii - assumes not binary
-    if (item['data']):
-        #print(base64.b64decode(item['data']).decode('ascii') + '\n')
-        msg.append(base64.b64decode(item['data']).decode('ascii'))
-
 while True:
     # get message data into dataframe and clean to match standard output
-    df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
+    sql_file_raw = pd.read_sql_query(sql="SELECT * FROM raw_mountmaya ORDER BY DateTime DESC LIMIT 1000", con = engine)
+    sql_file_clean = pd.read_sql_query(sql="SELECT * FROM clean_mountmaya ORDER BY DateTime DESC LIMIT 1000", con = engine)
     
-    # filter only lon/lat for Maya in case other wx stations are connected
-    # to the same account
-    lat = '52.287217' # Maya
-    lon = '-126.073550' # Maya
-    coords_maya = pd.DataFrame(index=range(len(df_sat)),columns=range(2))
-    coords_maya[0] = coords_maya[0].fillna(lat)
-    coords_maya[1] = coords_maya[1].fillna(lon)
-    df_coords = df_sat[[0,1]]
-    df_logical = df_coords.eq(coords_maya)
-    df_maya = df_coords[df_logical]
-
-    # identify if lat is different and remove entire row (i.e. used to avoid
-    # other non-Maya wx station data being submitted to the same Bumblebee
-    # message account)
-    idx = df_maya[df_logical[0]].index.tolist()
-    df_sat = df_sat.iloc[idx]
-    df_sat = df_sat.reset_index(drop=True)
-
-    # make sure you sort messages from older to newer dates as satellite sometimes 
-    # sends multiple records at same time which are not sorted from older to newer
-    df_sat = df_sat.sort_values(by=[2,3,4,5]) # sort by columns YYYY, MM, DD, HH
+    # get datetime for both clean and raw sql databases
+    last_dt_sql_raw = sql_file_raw['DateTime'].iloc[0]
+    last_dt_sql_clean = sql_file_clean['DateTime'].iloc[0]
     
-    # put datetime column together based on individual columns
-    datetimes = df_sat[[2, 3, 4, 5]].astype(str).astype(np.int64)
-    datetimes.columns = ["year","month","day","hours"]
-    dt = pd.to_datetime(datetimes)
-    
-    # remove July 13 2023 from database as it is erroneous and reset indices
-    idx_err = [i for i in range(len(dt)) if '2023-07-13' in str(dt[i])]
-    df_sat = pd.DataFrame.drop(df_sat, idx_err)
-    dt = pd.Series.drop(dt, idx_err)
-    df_sat = pd.Series.reset_index(df_sat,drop=True)
-    dt = pd.Series.reset_index(dt,drop=True)
-    
-    # calculate PP_pipe
-    pp_pipes = []
-    for i in range(len(df_sat)):
-        if i == 0:
-            pp_pipe = 0
-        else:
-            pp_pipe = (float(df_sat[17].iloc[i]) - float(df_sat[17].iloc[i-1]))*1000
-        pp_pipes.append(pp_pipe)
-    
-    # read existing SQL entry with data and check if new data needs writing
-    print('Checking for new data from satellite')      
-    sql_file = pd.read_sql(sql="SELECT * FROM clean_mountmaya", con = engine)
-    last_dt_sql = sql_file['DateTime'].iloc[-1]
-    last_dt_system = dt.iloc[-1]
-    
-    # if the last row in SWARM matches last row in SQL database (i.e. no new data to
-    # write), then exit and don't write new data to databse
-    check = last_dt_sql == last_dt_system    
+    # if the last row in raw matches last row in clean SQL database 
+    # (i.e. no new data to write), then exit and don't write new data
+    check = last_dt_sql_raw == last_dt_sql_clean    
     if check:
         print('No new data detected - check satellite transmission?')  
         
@@ -116,66 +39,63 @@ while True:
         print("Done at:", current_dateTime, '- refreshing in 1 hour...')
         break
 
-    # else if new data on system which is not yet written to SQL, write it
+    # else if new data on raw which is not yet written to clean, write it
     else:
-        print('New satellite data detected - writing to SQL database') 
+        print('New satellite data detected - writing to clean database') 
         
-        # first find missing indices in SQL database
-        if last_dt_sql < dt.iloc[0]:
-            # safeguard in case the latest data on SQL is before the satelite 
-            # record started (should only happen when satelite connection 
-            # established for first time)
-            last_idx = len(df_sat)
-        else:
-            # else calculate latest SQL entry and assess how many new 
-            # satellite data to write to SQL database
-            last_dt_sql_idx = int(np.flatnonzero(last_dt_sql == dt)[0])
-            last_idx = df_sat.index[-1] - last_dt_sql_idx
+        # calculate latest SQL entry and assess how many new 
+        # satellite data to write to SQL database
+        last_dt_sql_idx = int(np.flatnonzero(last_dt_sql_clean == sql_file_raw['DateTime']))
+        last_idx = (sql_file_raw.index[0] - last_dt_sql_idx)
             
         # only keep new data that needs added to sql database
-        missing_data_df = df_sat.iloc[-last_idx:]
-        
-        # recalculate dt for missing data
-        datetimes = missing_data_df[[2, 3, 4, 5]].astype(str).astype(np.int64)
-        datetimes.columns = ["year","month","day","hours"]
-        dt = pd.to_datetime(datetimes)
+        missing_data_df = sql_file_raw.iloc[:-last_idx]
+        missing_data_dt = sql_file_raw['DateTime'].iloc[:-last_idx]   
     
+        # calculate PP_pipe
+        pp_pipes = []
+        for i in range(len(missing_data_df)):
+            if i == 0:
+                pp_pipe = 0
+            else:
+                pp_pipe = (float(missing_data_df['PrecipGaugeLvl_Avg'].iloc[i]) - float(missing_data_df['PrecipGaugeLvl_Avg'].iloc[i-1]))*1000
+            pp_pipes.append(pp_pipe)
+        
         # calculate water year (new year starts on 10.01.YYYY). If months are 
         # before October, do nothing. Else add +1
         WatYrs = []
-        for i in range(len(dt)):
-            if int(str(dt.iloc[i]).split('-')[1]) < 10:
-                WatYr = int(str(dt.iloc[i]).split('-')[0])
+        for i in range(len(missing_data_df)):
+            if int(str(missing_data_df['DateTime'].iloc[i]).split('-')[1]) < 10:
+                WatYr = int(str(missing_data_df['DateTime'].iloc[i]).split('-')[0])
             else:
-                WatYr = int(str(dt.iloc[i]).split('-')[0])+1
+                WatYr = int(str(missing_data_df['DateTime'].iloc[i]).split('-')[0])+1
             WatYrs.append(WatYr)  
                 
         # convert "distance to snow" to snow depth by substracting height of
         # instrument above summer ground (3.8 m) and convert to cm
-        snow_depth = missing_data_df[9].astype(float)
+        snow_depth = missing_data_df['TCDT_Avg'].astype(float)
         snow_depth = (3.8-snow_depth)*100 # approx. height of tower instrument in summer
         snow_depth = np.round(snow_depth,2) # round to nearest 2 decimals
         
         # export new data to last row of SQL database  
         # No data values will automatically be added in SQL database as 
         # 'NULL'
-        new_row = pd.DataFrame({'DateTime':dt,
-                   'WatYr':WatYrs,
-                   'Air_Temp':missing_data_df[7].astype(float),
-                   'RH':missing_data_df[8].astype(float),
-                   'BP':missing_data_df[15].astype(float),
-                   'Wind_speed':missing_data_df[10].astype(float)*3.6, # convert m/s to km/h
-                   'Wind_Dir':missing_data_df[12].astype(float),
-                   'Pk_Wind_Speed':missing_data_df[11].astype(float)*3.6, # convert m/s to km/h
-                   'Pk_Wind_Dir':np.nan,
-                   'PC_Tipper':0, # no PC_Tipper but throwing error msg
-                   'PP_Tipper':missing_data_df[14].astype(float),
-                   'PC_Raw_Pipe':missing_data_df[17].astype(float)*1000,
-                   'PP_Pipe':pp_pipes[-last_idx:],
-                   'Snow_Depth':snow_depth,
-                   'Solar_Rad':missing_data_df[16].astype(float),
-                   'Batt':missing_data_df[6].astype(float),
-                   })
+        new_row = pd.DataFrame({'DateTime':missing_data_df['DateTime'],
+            'WatYr':WatYrs,
+            'Air_Temp':missing_data_df['AirTC_Avg'].astype(float),
+            'RH':missing_data_df['RH_Avg'].astype(float),
+            'BP':missing_data_df['BaroP_Avg'].astype(float),
+            'Wind_speed':missing_data_df['WS_ms_Avg'].astype(float)*3.6, # convert m/s to km/h
+            'Wind_Dir':missing_data_df['WindDir_D1_WVT'].astype(float),
+            'Pk_Wind_Speed':missing_data_df['WS_ms_Max'].astype(float)*3.6, # convert m/s to km/h
+            #'PC_Tipper':0, # no PC_Tipper but throwing error msg
+            'PP_Tipper':missing_data_df['Rain_mm_Tot'].astype(float),
+            'PC_Raw_Pipe':missing_data_df['PrecipGaugeLvl_Avg'].astype(float)*1000,
+            'PP_Pipe':pp_pipes,
+            'Snow_Depth':snow_depth,
+            'Solar_Rad':missing_data_df['SolarRad_Avg'].astype(float),
+            'Batt':missing_data_df['BattV_Avg'].astype(float),
+            })
                 
         # write new data to MySQL database
         new_row.to_sql(name='clean_mountmaya', con=engine, if_exists = 'append', index=False)
