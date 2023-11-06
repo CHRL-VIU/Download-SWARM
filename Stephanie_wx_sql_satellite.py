@@ -78,7 +78,7 @@ for i in range(len(stephanies)):
                            'PC_Raw_Pipe':missing_data_df['PC_Raw_Pipe'].astype(float)*1000, # convert to mm
                            })
                 # write new data to MySQL database
-                new_row.to_sql(name='raw_steph%s' %stephanies[i], con=engine, if_exists = 'append', index=False)
+                new_row.to_sql(name='clean_steph%s' %stephanies[i], con=engine, if_exists = 'append', index=False)
             
             # for Steph 9
             else:
@@ -91,7 +91,7 @@ for i in range(len(stephanies)):
                            'PC_Raw_Pipe':missing_data_df['PC_Raw_Pipe'].astype(float)*1000, # convert to mm
                            })
                 # write new data to MySQL database
-                new_row.to_sql(name='raw_upperrussell', con=engine, if_exists = 'append', index=False)
+                new_row.to_sql(name='clean_upperrussell', con=engine, if_exists = 'append', index=False)
             
             # write current time for sanity check and exit loop
             current_dateTime = datetime.now()
