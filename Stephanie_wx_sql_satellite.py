@@ -64,6 +64,17 @@ for i in range(len(stephanies)):
             # 'NULL'
             # for Steph 6
             if stephanies[i] == 6:
+                
+                # calculate snow depth and correct when necessary
+                snow_depth = missing_data_df['Snow_Depth'].astype(float)
+                for j in range(len(snow_depth)):
+                    # removes outliers before Bill goes back to fix
+                    if (3.79 - snow_depth[j]) < -5:
+                        snow_depth[j] = np.nan
+                    else:
+                        snow_depth[j] = np.round(3.79 - snow_depth[j],2)
+                    
+                # write to SQL
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
                            'WatYr':missing_data_df['WatYr'].astype(int),
                            'Batt':missing_data_df['Batt'].astype(float),
@@ -73,7 +84,7 @@ for i in range(len(stephanies)):
                            'Pk_Wind_Speed':missing_data_df['Pk_Wind_Speed'].astype(float),
                            'Wind_Dir':missing_data_df['Wind_Dir'].astype(float),
                            'Solar_Rad':missing_data_df['Solar_Rad'].astype(float),
-                           'Snow_Depth': 3.79 - missing_data_df['Snow_Depth'].astype(float), #distance to ground conversion
+                           'Snow_Depth': snow_depth, #distance to ground conversion
                            'PP_Tipper':missing_data_df['PP_Tipper'].astype(float),
                            'PC_Raw_Pipe':missing_data_df['PC_Raw_Pipe'].astype(float)*1000, # convert to mm
                            })
