@@ -120,12 +120,12 @@ df_s9 = df_s9.sort_values(by=[0,1,2]) # sort by columns YYYY, MM, DD, HH
 s6_dt = df_s6[[ 0, 1, 2]].astype(str).astype(np.int64)
 s6_dt = pd.concat([pd.DataFrame(RegYrs_s6),s6_dt], axis=1)
 s6_dt.columns = ["year","month","day","hours"]
-s6_dt = pd.to_datetime(s6_dt)
+s6_dt = pd.to_datetime(s6_dt).sort_values().reset_index(drop=True) # chronological
 
 s9_dt = df_s9[[ 0, 1, 2]].astype(str).astype(np.int64)
 s9_dt = pd.concat([pd.DataFrame(RegYrs_s9),s9_dt], axis=1)
 s9_dt.columns = ["year","month","day","hours"]
-s9_dt = pd.to_datetime(s9_dt)
+s9_dt = pd.to_datetime(s9_dt).sort_values().reset_index(drop=True) # chronological
 
 # combine dataframes into list
 steph_master = [df_s6,df_s9]
