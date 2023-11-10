@@ -81,10 +81,6 @@ idx = df_s9[df_logical[5]].index.tolist()
 df_s9 = df_sat.iloc[idx]
 df_s9 = df_s9.reset_index(drop=True)
 
-# need to remove Steph 9 data that is not needed (e.g. during tests)
-cut_idx = int(np.flatnonzero(df_s9[15])[-1])+2
-df_s9 = df_s9[cut_idx:].reset_index(drop=True)
-
 # calculate water year for Stephanies (new year starts on 10.01.YYYY). 
 # If months are before October, do nothing. Else add +1
 WatYrs_s6 = []
