@@ -56,55 +56,37 @@ df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
     
 # filter only lon/lat for specific wx station
 # Steph 6
-s6_lat = '50.319'
-s6_lon = '126.35'
-coords_s6 = pd.DataFrame(index=range(len(df_sat)),columns=[4, 5])
-coords_s6[4] = coords_s6[4].fillna(s6_lat)
-coords_s6[5] = coords_s6[5].fillna(s6_lon)
-df_coords = df_sat[[4,5]]
-df_logical = df_coords.eq(coords_s6)
-df_s6 = df_coords[df_logical]
-idx = df_s6[df_logical[5]].index.tolist()
+s6 = 'S6'
+label_s6 = pd.DataFrame(index=range(len(df_sat)),columns=[4])
+label_s6 = label_s6.fillna(s6)
+df_label = df_sat[[4]]
+df_logical = df_label.eq(label_s6)
+df_s6 = df_label[df_logical]
+idx = df_s6[df_logical[4]].index.tolist()
 df_s6 = df_sat.iloc[idx]
 df_s6 = df_s6.reset_index(drop=True)
 
 # Steph 9
-s9_lat = '50.345'
-s9_lon = '120.362'
-coords_s9 = pd.DataFrame(index=range(len(df_sat)),columns=[4, 5])
-coords_s9[4] = coords_s9[4].fillna(s9_lat)
-coords_s9[5] = coords_s9[5].fillna(s9_lon)
-df_coords = df_sat[[4,5]]
-df_logical = df_coords.eq(coords_s9)
-df_s9 = df_coords[df_logical]
-idx = df_s9[df_logical[5]].index.tolist()
+s9 = 'S9'
+label_s9 = pd.DataFrame(index=range(len(df_sat)),columns=[4])
+label_s9 = label_s9.fillna(s9)
+df_label = df_sat[[4]]
+df_logical = df_label.eq(label_s9)
+df_s9 = df_label[df_logical]
+idx = df_s9[df_logical[4]].index.tolist()
 df_s9 = df_sat.iloc[idx]
 df_s9 = df_s9.reset_index(drop=True)
 
 # calculate water year for Stephanies (new year starts on 10.01.YYYY). 
 # If months are before October, do nothing. Else add +1
-WatYrs_s6 = []
-RegYrs_s6 = []
-for i in range(len(df_s6)):
-    if int(str(df_s6[18].iloc[i]).split('-')[1]) < 10:
-        WatYr = int(str(df_s6[18].iloc[i]).split('-')[0])
-        RegYr = WatYr
-    else:
-        WatYr = int(str(df_s6[18].iloc[i]).split('-')[0])+1
-        RegYr = WatYr-1
-    WatYrs_s6.append(WatYr)
-    RegYrs_s6.append(RegYr)
-    
-WatYrs_s9 = []
 RegYrs_s9 = []
 for i in range(len(df_s9)):
-    if int(str(df_s9[14].iloc[i]).split('-')[1]) < 10:
-        WatYr = int(str(df_s9[14].iloc[i]).split('-')[0])
+    if int(str(df_s9[13].iloc[i]).split('-')[1]) < 10:
+        WatYr = int(str(df_s9[13].iloc[i]).split('-')[0])
         RegYr = WatYr
     else:
-        WatYr = int(str(df_s9[14].iloc[i]).split('-')[0])+1
+        WatYr = int(str(df_s9[13].iloc[i]).split('-')[0])+1
         RegYr = WatYr-1
-    WatYrs_s9.append(WatYr)
     RegYrs_s9.append(RegYr)
 
 # make sure you sort messages from older to newer dates as satellite sometimes 
@@ -113,12 +95,11 @@ df_s6 = df_s6.sort_values(by=[0,1,2]) # sort by columns YYYY, MM, DD, HH
 df_s9 = df_s9.sort_values(by=[0,1,2]) # sort by columns YYYY, MM, DD, HH
 
 # put datetime column together based on individual columns
-s6_dt = df_s6[[ 0, 1, 2]].astype(str).astype(np.int64)
-s6_dt = pd.concat([pd.DataFrame(RegYrs_s6),s6_dt], axis=1)
+s6_dt = df_s6[[0, 1, 2, 3]].astype(str).astype(np.int64)
 s6_dt.columns = ["year","month","day","hours"]
 s6_dt = pd.to_datetime(s6_dt).sort_values().reset_index(drop=True) # chronological
 
-s9_dt = df_s9[[ 0, 1, 2]].astype(str).astype(np.int64)
+s9_dt = df_s9[[0, 1, 2]].astype(str).astype(np.int64)
 s9_dt = pd.concat([pd.DataFrame(RegYrs_s9),s9_dt], axis=1)
 s9_dt.columns = ["year","month","day","hours"]
 s9_dt = pd.to_datetime(s9_dt).sort_values().reset_index(drop=True) # chronological
@@ -182,19 +163,19 @@ for i in range(len(stephanies)):
             # for Steph 6
             if stephanies[i] == 6:
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
-                           'WatYr':WatYrs_s6[-last_idx:],
-                           'Batt':missing_data_df[6].astype(float),
-                           'Air_Temp':missing_data_df[7].astype(float),
-                           'RH':missing_data_df[8].astype(float),
-                           'Wind_speed':missing_data_df[9].astype(float),
-                           'Pk_Wind_Speed':missing_data_df[10].astype(float),
-                           'Wind_Dir':missing_data_df[11].astype(float),
-                           'Wind_Dir_SD':missing_data_df[12].astype(float),
-                           'Solar_Rad':missing_data_df[13].astype(float),
-                           'Snow_Depth': missing_data_df[14].astype(float), 
-                           'SDist_Q':missing_data_df[15].astype(float),
-                           'PP_Tipper':missing_data_df[16].astype(float),
-                           'PC_Raw_Pipe':missing_data_df[17].astype(float)
+                           'Batt':missing_data_df[5].astype(float),
+                           'Air_Temp':missing_data_df[6].astype(float),
+                           'RH':missing_data_df[7].astype(float),
+                           'Wind_speed':missing_data_df[8].astype(float),
+                           'Pk_Wind_Speed':missing_data_df[9].astype(float),
+                           'Wind_Dir':missing_data_df[10].astype(float),
+                           'Wind_Dir_SD':missing_data_df[11].astype(float),
+                           'Solar_Rad':missing_data_df[12].astype(float),
+                           'Snow_Depth': missing_data_df[13].astype(float), 
+                           'SDist_Q':missing_data_df[14].astype(float),
+                           'PP_Tipper':missing_data_df[15].astype(float),
+                           'PC_Raw_Pipe':missing_data_df[16].astype(float),
+                           'BP':missing_data_df[17].astype(float) # in kpa
                            })
                 # write new data to MySQL database
                 new_row.to_sql(name='raw_steph%s' %stephanies[i], con=engine, if_exists = 'append', index=False)
@@ -202,15 +183,14 @@ for i in range(len(stephanies)):
             # for Steph 9
             else:
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
-                           'WatYr':WatYrs_s9[-last_idx:],
-                           'Batt':missing_data_df[6].astype(float),
-                           'Air_Temp':missing_data_df[7].astype(float),
-                           'RH':missing_data_df[8].astype(float),
-                           'PP_Tipper':missing_data_df[9].astype(float),
-                           'PP_Tipper_cnt':missing_data_df[10].astype(float),
-                           'PC_Raw_Pipe':missing_data_df[11].astype(float),
-                           'River_Thick':missing_data_df[12].astype(float),
-                           'River_Thick_SD':missing_data_df[13].astype(float),
+                           'Batt':missing_data_df[5].astype(float),
+                           'Air_Temp':missing_data_df[6].astype(float),
+                           'RH':missing_data_df[7].astype(float),
+                           'PP_Tipper':missing_data_df[8].astype(float),
+                           'PP_Tipper_cnt':missing_data_df[9].astype(float),
+                           'PC_Raw_Pipe':missing_data_df[10].astype(float),
+                           'River_Thick':missing_data_df[11].astype(float),
+                           'River_Thick_SD':missing_data_df[12].astype(float),
                            })
                 # write new data to MySQL database
                 new_row.to_sql(name='raw_upperrussell', con=engine, if_exists = 'append', index=False)
