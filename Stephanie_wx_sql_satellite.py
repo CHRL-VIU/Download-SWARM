@@ -27,6 +27,7 @@ for i in range(len(stephanies)):
         if stephanies[i] == 6:
             sql_file_raw = pd.read_sql_query(sql="SELECT * FROM raw_steph%s ORDER BY DateTime DESC LIMIT 1000" %(stephanies[i]), con = engine)
             sql_file_clean = pd.read_sql_query(sql="SELECT * FROM clean_steph%s ORDER BY DateTime DESC LIMIT 1000" %(stephanies[i]), con = engine)
+
         else:
             sql_file_raw = pd.read_sql_query(sql="SELECT * FROM raw_upperrussell ORDER BY DateTime DESC LIMIT 1000", con = engine)
             sql_file_clean = pd.read_sql_query(sql="SELECT * FROM clean_upperrussell ORDER BY DateTime DESC LIMIT 1000", con = engine)
@@ -57,7 +58,17 @@ for i in range(len(stephanies)):
                 
             # only keep new data that needs added to sql database
             missing_data_df = sql_file_raw.iloc[:-last_idx]
-            missing_data_dt = sql_file_raw['DateTime'].iloc[:-last_idx]        
+            missing_data_dt = sql_file_raw['DateTime'].iloc[:-last_idx]   
+            
+            # calculate water year for Stephanies (new year starts on 10.01.YYYY). 
+            # If months are before October, do nothing. Else add +1
+            WatYrs = []
+            for j in range(len(missing_data_df)):
+                if int(str(missing_data_dt.iloc[j]).split('-')[1]) < 10:
+                    WatYr = int(str(missing_data_dt.iloc[j]).split('-')[0])
+                else:
+                    WatYr = int(str(missing_data_dt.iloc[j]).split('-')[0])+1
+                WatYrs.append(WatYr)
             
             # export new data to last row of SQL database  
             # No data values will automatically be added in SQL database as 
@@ -67,16 +78,11 @@ for i in range(len(stephanies)):
                 
                 # calculate snow depth and correct when necessary
                 snow_depth = missing_data_df['Snow_Depth'].astype(float)
-                for j in range(len(snow_depth)):
-                    # removes outliers before Bill goes back to fix
-                    if (3.79 - snow_depth[j]) < -5:
-                        snow_depth[j] = np.nan
-                    else:
-                        snow_depth[j] = np.round(3.79 - snow_depth[j],2)
+                snow_depth = np.round(3.79 - snow_depth,2)
                     
                 # write to SQL
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
-                           'WatYr':missing_data_df['WatYr'].astype(int),
+                           'WatYr':WatYrs,
                            'Batt':missing_data_df['Batt'].astype(float),
                            'Air_Temp':missing_data_df['Air_Temp'].astype(float),
                            'RH':missing_data_df['RH'].astype(float),
@@ -87,6 +93,8 @@ for i in range(len(stephanies)):
                            'Snow_Depth': snow_depth, #distance to ground conversion
                            'PP_Tipper':missing_data_df['PP_Tipper'].astype(float),
                            'PC_Raw_Pipe':missing_data_df['PC_Raw_Pipe'].astype(float)*1000, # convert to mm
+                           #'BP':missing_data_df['BP'].astype(float) # in kpa but needs fixing first - Sergey is on it
+                           'BP': np.nan # in kpa but needs fixing first - Sergey is on it
                            })
                 # write new data to MySQL database
                 new_row.to_sql(name='clean_steph%s' %stephanies[i], con=engine, if_exists = 'append', index=False)
@@ -94,7 +102,7 @@ for i in range(len(stephanies)):
             # for Steph 9
             else:
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
-                           'WatYr':missing_data_df['WatYr'].astype(int),
+                           'WatYr':WatYrs,
                            'Batt':missing_data_df['Batt'].astype(float),
                            'Air_Temp':missing_data_df['Air_Temp'].astype(float),
                            'RH':missing_data_df['RH'].astype(float),
