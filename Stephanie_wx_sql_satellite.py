@@ -27,7 +27,6 @@ for i in range(len(stephanies)):
         if stephanies[i] == 6:
             sql_file_raw = pd.read_sql_query(sql="SELECT * FROM raw_steph%s ORDER BY DateTime DESC LIMIT 1000" %(stephanies[i]), con = engine)
             sql_file_clean = pd.read_sql_query(sql="SELECT * FROM clean_steph%s ORDER BY DateTime DESC LIMIT 1000" %(stephanies[i]), con = engine)
-
         else:
             sql_file_raw = pd.read_sql_query(sql="SELECT * FROM raw_upperrussell ORDER BY DateTime DESC LIMIT 1000", con = engine)
             sql_file_clean = pd.read_sql_query(sql="SELECT * FROM clean_upperrussell ORDER BY DateTime DESC LIMIT 1000", con = engine)
@@ -78,7 +77,7 @@ for i in range(len(stephanies)):
                 
                 # calculate snow depth and correct when necessary
                 snow_depth = missing_data_df['Snow_Depth'].astype(float)
-                snow_depth = np.round(3.79 - snow_depth,2)
+                snow_depth = np.round(3.79 - snow_depth,2)*100 # m to cm
                     
                 # write to SQL
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
