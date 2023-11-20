@@ -49,7 +49,8 @@ msg = []
 for item in messages:
     # if there is a 'data' keypair, output the data portion converting it from base64 to ascii - assumes not binary
     if (item['data']):
-        msg.append(base64.b64decode(item['data']).decode('ascii') + ',' + item['hiveRxTime'])
+        #msg.append(base64.b64decode(item['data']).decode('ascii') + ',' + item['hiveRxTime'])
+        msg.append(base64.b64decode(item['data']).decode('ascii'))
 
 # get message data into dataframe and clean to match standard output
 df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
@@ -77,17 +78,10 @@ idx = df_s9[df_logical[4]].index.tolist()
 df_s9 = df_sat.iloc[idx]
 df_s9 = df_s9.reset_index(drop=True)
 
-# calculate water year for Stephanies (new year starts on 10.01.YYYY). 
-# If months are before October, do nothing. Else add +1
-RegYrs_s9 = []
-for i in range(len(df_s9)):
-    if int(str(df_s9[13].iloc[i]).split('-')[1]) < 10:
-        WatYr = int(str(df_s9[13].iloc[i]).split('-')[0])
-        RegYr = WatYr
-    else:
-        WatYr = int(str(df_s9[13].iloc[i]).split('-')[0])+1
-        RegYr = WatYr-1
-    RegYrs_s9.append(RegYr)
+# remove bad data before re-set of logger (temp fix)
+index = int(np.flatnonzero(df_s9[0] == '2023')[0])
+if index != []:
+    df_s9 = df_s9.iloc[index:]
 
 # make sure you sort messages from older to newer dates as satellite sometimes 
 # sends multiple records at same time which are not sorted from older to newer
@@ -99,8 +93,7 @@ s6_dt = df_s6[[0, 1, 2, 3]].astype(str).astype(np.int64)
 s6_dt.columns = ["year","month","day","hours"]
 s6_dt = pd.to_datetime(s6_dt).sort_values().reset_index(drop=True) # chronological
 
-s9_dt = df_s9[[0, 1, 2]].astype(str).astype(np.int64)
-s9_dt = pd.concat([pd.DataFrame(RegYrs_s9),s9_dt], axis=1)
+s9_dt = df_s9[[0, 1, 2, 3]].astype(str).astype(np.int64)
 s9_dt.columns = ["year","month","day","hours"]
 s9_dt = pd.to_datetime(s9_dt).sort_values().reset_index(drop=True) # chronological
 
@@ -154,8 +147,13 @@ for i in range(len(stephanies)):
                 last_idx = steph_master[i].index[-1] - last_dt_sql_idx
                 
             # only keep new data that needs added to sql database
-            missing_data_df = steph_master[i].iloc[-last_idx:]
-            missing_data_dt = steph_master_dt[i].iloc[-last_idx:]
+            if stephanies == [6]:
+                missing_data_df = steph_master[i].iloc[-last_idx:]
+                missing_data_dt = steph_master_dt[i].iloc[-last_idx:]
+            # temp fix
+            else:
+                missing_data_df = steph_master[i].iloc[-last_idx:].reset_index(drop=True)
+                missing_data_dt = steph_master_dt[i].iloc[-last_idx:].reset_index(drop=True)
             
             # export new data to last row of SQL database  
             # No data values will automatically be added in SQL database as 
