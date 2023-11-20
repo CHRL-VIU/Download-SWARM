@@ -77,7 +77,7 @@ for i in range(len(stephanies)):
                 
                 # calculate snow depth and correct when necessary
                 snow_depth = missing_data_df['Snow_Depth'].astype(float)
-                snow_depth = np.round(3.79 - snow_depth,2)*100 # m to cm
+                snow_depth = np.round(379 - snow_depth*100,2) # m to cm
                     
                 # write to SQL
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
