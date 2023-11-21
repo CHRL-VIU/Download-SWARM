@@ -98,8 +98,8 @@ s9_dt.columns = ["year","month","day","hours"]
 s9_dt = pd.to_datetime(s9_dt).sort_values().reset_index(drop=True) # chronological
 
 # combine dataframes into list
-steph_master = [df_s6,df_s9]
-steph_master_dt = [s6_dt,s9_dt]
+steph_master = [df_s6,df_s9.reset_index(drop=True)]
+steph_master_dt = [s6_dt,s9_dt.reset_index(drop=True)]
 
 # read existing SQL entry with data and check if new data needs writing
 # reading the 'raw' SQL results in Memory Error messages due to 
@@ -147,13 +147,8 @@ for i in range(len(stephanies)):
                 last_idx = steph_master[i].index[-1] - last_dt_sql_idx
                 
             # only keep new data that needs added to sql database
-            if stephanies == [6]:
-                missing_data_df = steph_master[i].iloc[-last_idx:]
-                missing_data_dt = steph_master_dt[i].iloc[-last_idx:]
-            # temp fix
-            else:
-                missing_data_df = steph_master[i].iloc[-last_idx:].reset_index(drop=True)
-                missing_data_dt = steph_master_dt[i].iloc[-last_idx:].reset_index(drop=True)
+            missing_data_df = steph_master[i].iloc[-last_idx:]
+            missing_data_dt = steph_master_dt[i].iloc[-last_idx:]
             
             # export new data to last row of SQL database  
             # No data values will automatically be added in SQL database as 
