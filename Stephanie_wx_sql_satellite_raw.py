@@ -58,48 +58,104 @@ df_sat = pd.DataFrame([sub.split(",") for sub in msg[::-1]])
 # filter only lon/lat for specific wx station
 # Steph 6
 s6 = 'S6'
-label_s6 = pd.DataFrame(index=range(len(df_sat)),columns=[4])
+label_s6 = pd.DataFrame(index=range(len(df_sat)),columns=[1])
 label_s6 = label_s6.fillna(s6)
-df_label = df_sat[[4]]
-df_logical = df_label.eq(label_s6)
+df_label = df_sat[[0]]
+df_logical = df_label.eq(label_s6.values)
 df_s6 = df_label[df_logical]
-idx = df_s6[df_logical[4]].index.tolist()
+idx = df_s6[df_logical[0]].index.tolist()
 df_s6 = df_sat.iloc[idx]
 df_s6 = df_s6.reset_index(drop=True)
 
 # Steph 9
 s9 = 'S9'
-label_s9 = pd.DataFrame(index=range(len(df_sat)),columns=[4])
+label_s9 = pd.DataFrame(index=range(len(df_sat)),columns=[1])
 label_s9 = label_s9.fillna(s9)
-df_label = df_sat[[4]]
-df_logical = df_label.eq(label_s9)
+df_label = df_sat[[0]]
+df_logical = df_label.eq(label_s9.values)
 df_s9 = df_label[df_logical]
-idx = df_s9[df_logical[4]].index.tolist()
+idx = df_s9[df_logical[0]].index.tolist()
 df_s9 = df_sat.iloc[idx]
 df_s9 = df_s9.reset_index(drop=True)
 
 # remove bad data before re-set of logger (temp fix)
-index = int(np.flatnonzero(df_s9[0] == '2023')[0])
+index = int(np.flatnonzero(df_s9[1] == '-214')[0])
 if index != []:
-    df_s9 = df_s9.iloc[index:]
+    df_s9 = df_s9.iloc[index+1:]
+    df_s9 = df_s9.reset_index(drop=True)
 
-# make sure you sort messages from older to newer dates as satellite sometimes 
-# sends multiple records at same time which are not sorted from older to newer
-df_s6 = df_s6.sort_values(by=[0,1,2]) # sort by columns YYYY, MM, DD, HH
-df_s9 = df_s9.sort_values(by=[0,1,2]) # sort by columns YYYY, MM, DD, HH
+#%% Steph 6
+# split data by dates and hours
+dates_s6 = df_s6.iloc[:,1:4]
+hours_s6 = df_s6.iloc[:,[4,17]]
 
-# put datetime column together based on individual columns
-s6_dt = df_s6[[0, 1, 2, 3]].astype(str).astype(np.int64)
-s6_dt.columns = ["year","month","day","hours"]
-s6_dt = pd.to_datetime(s6_dt).sort_values().reset_index(drop=True) # chronological
+# identify index of bad data before re-set of logger (temp fix)
+index = int(np.flatnonzero(df_s6[1] == '-214')[0])
 
-s9_dt = df_s9[[0, 1, 2, 3]].astype(str).astype(np.int64)
-s9_dt.columns = ["year","month","day","hours"]
-s9_dt = pd.to_datetime(s9_dt).sort_values().reset_index(drop=True) # chronological
+# merge dates and years with data for each two hour slots
+df_s6_1 = pd.concat([dates_s6, hours_s6.iloc[:,0].str.replace('h',''),df_s6.iloc[:,5:17]], axis=1)
+df_s6_2 = pd.concat([dates_s6, hours_s6.iloc[:,1].str.replace('h',''),df_s6.iloc[:,18:30]], axis=1)
 
-# combine dataframes into list
+# clean up issue due to bad data before re-set of logger (temp fix)
+if index != []:
+    # df_s6_1
+    df_s6_1 = df_s6_1.iloc[index+1:]
+    df_s6_1 = df_s6_1.reset_index(drop=True)
+    
+    # df_s6_2
+    df_s6_2.iloc[index,0:3] = ['2024','01','16']
+    
+# convert to datetime
+s6_1_dt = df_s6_1[[1,2,3,4]].astype(str).astype(np.int64)
+s6_1_dt.columns = ["year","month","day","hours"]
+s6_1_dt = pd.to_datetime(s6_1_dt)
+
+s6_2_dt = df_s6_2[[1,2,3,17]].astype(str).astype(np.int64)
+s6_2_dt.columns = ["year","month","day","hours"]
+s6_2_dt = pd.to_datetime(s6_2_dt)
+
+# fix issues at midnight for second hourly message
+idx_midnight = np.flatnonzero(df_s6_2.iloc[:,3] == '00')
+s6_2_dt[idx_midnight] = pd.DatetimeIndex(s6_2_dt[idx_midnight]) + pd.DateOffset(1)
+
+# merge together datetimes and df_s6_1 and df_s6_2
+df_s6_1 = pd.concat((s6_1_dt, df_s6_1.iloc[:,4:]), axis=1).reset_index(drop=True).T.reset_index(drop=True).T
+df_s6_2 = pd.concat((s6_2_dt, df_s6_2.iloc[:,4:]), axis=1).reset_index(drop=True).T.reset_index(drop=True).T
+
+df_s6 = pd.concat([df_s6_1, df_s6_2])
+df_s6 = df_s6.sort_values(by=[0]).reset_index(drop=True)
+
+#%% Steph 9
+# split data by dates and hours
+dates_s9 = df_s9.iloc[:,1:4]
+hours_s9 = df_s9.iloc[:,[4,13]]
+
+# merge dates and years with data for each two hour slots
+df_s9_1 = pd.concat([dates_s9, hours_s9.iloc[:,0].str.replace('h',''),df_s9.iloc[:,5:13]], axis=1)
+df_s9_2 = pd.concat([dates_s9, hours_s9.iloc[:,1].str.replace('h',''),df_s9.iloc[:,14:22]], axis=1)
+
+# convert to datetime
+s9_1_dt = df_s9_1[[1,2,3,4]].astype(str).astype(np.int64)
+s9_1_dt.columns = ["year","month","day","hours"]
+s9_1_dt = pd.to_datetime(s9_1_dt)
+
+s9_2_dt = df_s9_2[[1,2,3,13]].astype(str).astype(np.int64)
+s9_2_dt.columns = ["year","month","day","hours"]
+s9_2_dt = pd.to_datetime(s9_2_dt)
+
+# fix issues at midnight for second hourly message
+idx_midnight = np.flatnonzero(df_s9_2.iloc[:,3] == '00')
+s9_2_dt[idx_midnight] = pd.DatetimeIndex(s9_2_dt[idx_midnight]) + pd.DateOffset(1)
+
+# merge together datetimes and df_s9_1 and df_s9_2
+df_s9_1 = pd.concat((s9_1_dt, df_s9_1.iloc[:,4:]), axis=1).reset_index(drop=True).T.reset_index(drop=True).T
+df_s9_2 = pd.concat((s9_2_dt, df_s9_2.iloc[:,4:]), axis=1).reset_index(drop=True).T.reset_index(drop=True).T
+
+df_s9 = pd.concat([df_s9_1, df_s9_2])
+df_s9 = df_s9.sort_values(by=[0]).reset_index(drop=True)
+
+#%% combine dataframes into list
 steph_master = [df_s6,df_s9.reset_index(drop=True)]
-steph_master_dt = [s6_dt,s9_dt.reset_index(drop=True)]
 
 # read existing SQL entry with data and check if new data needs writing
 # reading the 'raw' SQL results in Memory Error messages due to 
@@ -115,9 +171,9 @@ for i in range(len(stephanies)):
             sql_file = pd.read_sql_query(sql="SELECT * FROM raw_steph%s ORDER BY DateTime DESC LIMIT 1000" %(stephanies[i]), con = engine)
         else:
             sql_file = pd.read_sql_query(sql="SELECT * FROM raw_upperrussell ORDER BY DateTime DESC LIMIT 1000", con = engine)
-        
+                
         last_dt_sql = sql_file['DateTime'].iloc[0] # index [0] as newer data at top
-        last_dt_system = steph_master_dt[i].iloc[-1]
+        last_dt_system = steph_master[i].iloc[-1,0]
         
         # if the last row in SWARM matches last row in SQL database (i.e. no new data to
         # write), then exit and don't write new data to database
@@ -135,7 +191,7 @@ for i in range(len(stephanies)):
             print('New satellite data detected - writing to SQL database') 
             
             # first find missing indices in SQL database
-            if last_dt_sql < steph_master_dt[i].iloc[0]:
+            if last_dt_sql < steph_master[i].iloc[0,0]:
                 # safeguard in case the latest data on SQL is before the satelite 
                 # record started (should only happen when satelite connection 
                 # established for first time)
@@ -143,12 +199,12 @@ for i in range(len(stephanies)):
             else:
                 # else calculate latest SQL entry and assess how many new 
                 # satellite data to write to SQL database
-                last_dt_sql_idx = int(np.flatnonzero(last_dt_sql == steph_master_dt[i])[0])
+                last_dt_sql_idx = int(np.flatnonzero(last_dt_sql == steph_master[i].iloc[:,0])[0])
                 last_idx = steph_master[i].index[-1] - last_dt_sql_idx
                 
             # only keep new data that needs added to sql database
             missing_data_df = steph_master[i].iloc[-last_idx:]
-            missing_data_dt = steph_master_dt[i].iloc[-last_idx:]
+            missing_data_dt = steph_master[i].iloc[-last_idx:,0]
             
             # export new data to last row of SQL database  
             # No data values will automatically be added in SQL database as 
@@ -156,19 +212,19 @@ for i in range(len(stephanies)):
             # for Steph 6
             if stephanies[i] == 6:
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
-                           'Batt':missing_data_df[5].astype(float),
-                           'Air_Temp':missing_data_df[6].astype(float),
-                           'RH':missing_data_df[7].astype(float),
-                           'Wind_speed':missing_data_df[8].astype(float),
-                           'Pk_Wind_Speed':missing_data_df[9].astype(float),
-                           'Wind_Dir':missing_data_df[10].astype(float),
-                           'Wind_Dir_SD':missing_data_df[11].astype(float),
-                           'Solar_Rad':missing_data_df[12].astype(float),
-                           'Snow_Depth': missing_data_df[13].astype(float), 
-                           'SDist_Q':missing_data_df[14].astype(float),
-                           'PP_Tipper':missing_data_df[15].astype(float),
-                           'PC_Raw_Pipe':missing_data_df[16].astype(float),
-                           'BP':missing_data_df[17].astype(float) # in kpa
+                           'Batt':missing_data_df[1].astype(float),
+                           'Air_Temp':missing_data_df[2].astype(float),
+                           'RH':missing_data_df[3].astype(float),
+                           'Snow_Depth': missing_data_df[4].astype(float), 
+                           'Wind_speed':missing_data_df[5].astype(float),
+                           'Pk_Wind_Speed':missing_data_df[6].astype(float),
+                           'Wind_Dir':missing_data_df[7].astype(float),
+                           'Wind_Dir_SD':missing_data_df[8].astype(float),
+                           'PP_Tipper':missing_data_df[9].astype(float),
+                           #'BP':missing_data_df[10].astype(float), # in kpa
+                           'BP':np.nan, # in kpa but needs fixing first - Sergey is on it
+                           'Solar_Rad':missing_data_df[11].astype(float),
+                           'PC_Raw_Pipe':missing_data_df[12].astype(float)                         
                            })
                 # write new data to MySQL database
                 new_row.to_sql(name='raw_steph%s' %stephanies[i], con=engine, if_exists = 'append', index=False)
@@ -176,14 +232,14 @@ for i in range(len(stephanies)):
             # for Steph 9
             else:
                 new_row = pd.DataFrame({'DateTime':missing_data_dt,
-                           'Batt':missing_data_df[5].astype(float),
-                           'Air_Temp':missing_data_df[6].astype(float),
-                           'RH':missing_data_df[7].astype(float),
-                           'PP_Tipper':missing_data_df[8].astype(float),
-                           'PP_Tipper_cnt':missing_data_df[9].astype(float),
-                           'PC_Raw_Pipe':missing_data_df[10].astype(float),
-                           'River_Thick':missing_data_df[11].astype(float),
-                           'River_Thick_SD':missing_data_df[12].astype(float),
+                           'Batt':missing_data_df[1].astype(float),
+                           'Air_Temp':missing_data_df[2].astype(float),
+                           'RH':missing_data_df[3].astype(float),
+                           'PP_Tipper':missing_data_df[4].astype(float),
+                           'PP_Tipper_cnt':missing_data_df[5].astype(float),
+                           'PC_Raw_Pipe':missing_data_df[6].astype(float),
+                           'River_Thick':missing_data_df[7].astype(float),
+                           'River_Thick_SD':missing_data_df[8].astype(float),
                            })
                 # write new data to MySQL database
                 new_row.to_sql(name='raw_upperrussell', con=engine, if_exists = 'append', index=False)
