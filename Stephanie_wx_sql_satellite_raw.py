@@ -78,33 +78,15 @@ idx = df_s9[df_logical[0]].index.tolist()
 df_s9 = df_sat.iloc[idx]
 df_s9 = df_s9.reset_index(drop=True)
 
-# remove bad data before re-set of logger (temp fix)
-index = int(np.flatnonzero(df_s9[1] == '-214')[0])
-if index != []:
-    df_s9 = df_s9.iloc[index+1:]
-    df_s9 = df_s9.reset_index(drop=True)
-
 #%% Steph 6
 # split data by dates and hours
 dates_s6 = df_s6.iloc[:,1:4]
 hours_s6 = df_s6.iloc[:,[4,17]]
 
-# identify index of bad data before re-set of logger (temp fix)
-index = int(np.flatnonzero(df_s6[1] == '-214')[0])
-
 # merge dates and years with data for each two hour slots
 df_s6_1 = pd.concat([dates_s6, hours_s6.iloc[:,0].str.replace('h',''),df_s6.iloc[:,5:17]], axis=1)
 df_s6_2 = pd.concat([dates_s6, hours_s6.iloc[:,1].str.replace('h',''),df_s6.iloc[:,18:30]], axis=1)
 
-# clean up issue due to bad data before re-set of logger (temp fix)
-if index != []:
-    # df_s6_1
-    df_s6_1 = df_s6_1.iloc[index+1:]
-    df_s6_1 = df_s6_1.reset_index(drop=True)
-    
-    # df_s6_2
-    df_s6_2.iloc[index,0:3] = ['2024','01','16']
-    
 # convert to datetime
 s6_1_dt = df_s6_1[[1,2,3,4]].astype(str).astype(np.int64)
 s6_1_dt.columns = ["year","month","day","hours"]
